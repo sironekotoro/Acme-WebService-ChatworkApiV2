@@ -5,57 +5,84 @@ use warnings;
 
 our $VERSION = "0.01";
 
+use Encode qw/encode_utf8/;
+use Function::Parameters;
 use HTTP::Tiny;
 use JSON::PP 4.05 qw/decode_json/;
 use Mouse v2.5.10;
-use URI 5.05;
+use URI;
 
 has token => (
-    is  => 'rw',
+    is  => 'ro',
     isa => 'Str',
 );
 
-sub rooms {
-    my $self = shift;
-
-    my $ht = HTTP::Tiny->new(
-        default_headers => { "X-ChatWorkToken" => $self->token } );
-
-    my $url = URI->new("https://api.chatwork.com/v2/rooms");
-    my $res = $ht->get($url);
-
-    if ( $res->{success} ) {
-        return decode_json( $res->{content} );
+has http => (
+    is      => 'rw',
+    isa     => 'HTTP::Tiny',
+    builder => sub {
+        my $self = shift;
+        HTTP::Tiny->new(
+            default_headers => { "X-ChatWorkToken" => $self->token } );
     }
-    else {
-        die "$res->{code}:";
+);
+
+method api( :$method, :$url, :$opt = {} ) {
+
+    my $response;
+
+    my $uri = URI->new($url);
+
+    if ( $method eq 'get' ) {
+
+        my $opt_string
+            = keys %{$opt} > 0 ? opt_string_url_encode($opt) : undef;
+
+        $uri->query_form($opt);
+        print $uri;
+
+        $response = $self->http->get($uri);
     }
+    elsif ( $method =~ /post|put|delete/ ) {
+
+        my $opt_string
+            = keys %{$opt} > 0 ? opt_string_url_encode($opt) : undef;
+
+        $response = $self->http->$method(
+            $uri,
+            {   headers =>
+                    { 'Content-Type' => 'application/x-www-form-urlencoded' },
+                content => $opt_string
+            }
+        );
+    }
+
+    my $encoded_content = encode_utf8( $response->{content} );
+
+    return $encoded_content ? decode_json($encoded_content) : $response;
 
 }
 
-sub rooms_files {
-    my $self = shift;
-    my $argv = shift;
+fun opt_string_url_encode($opt) {
 
-    my $ht = HTTP::Tiny->new(
-        default_headers => { "X-ChatWorkToken" => $self->token } );
-    my $url
-        = URI->new(
-        "https://api.chatwork.com/v2/rooms/$argv->{rooms_id}/files/$argv->{file_id}?create_download_url=1"
-        );
+    my @array = ();
+    while ( my ( $key, $value ) = each %{$opt} ) {
 
-    my $res = $ht->get($url);
+        if ( ( ref $value ) eq 'ARRAY' ) {
 
-    if ( $res->{success} ) {
-        return decode_json( $res->{content} );
-    }
-    else {
-        die "$res->{code}:";
+            # valueが配列リファレンスの場合、カンマ区切りの文字列に置き換える
+            $value = join ',', @{$value};
+        }
+        push @array, "$key=$value";
     }
 
+    my $str = join "&", @array;
+
+    return $str;
 }
 
 1;
+
 __END__
 
 =encoding utf-8
@@ -67,27 +94,47 @@ Acme::WebService::ChatworkApiV2 - チャットワークのAPI v2 に対応した
 =head1 SYNOPSIS
 
     use Acme::WebService::ChatworkApiV2;
+    use Data::Dumper;
 
     my $cw = Acme::WebService::ChatworkApiV2->new(
         token => "YOUR_API_TOKEN" );
 
-    # room の情報を取得
-    my $rooms = $cw->rooms();
-    print Dumper $rooms;    # 参加している room の情報
+    # 自身の情報を取得（https://developer.chatwork.com/ja/endpoint_me.html）
+    my $res = $cw->api(
+        method => 'get',
+        url    => 'https://api.chatwork.com/v2/my/status',
+        opt    => {}
+    );
+    print Dumper $res;
 
-    # 添付ファイルのダウンロードリンクを取得する
-    my $file_info = $cw->rooms_files(
-        {   rooms_id => '',
-            file_id  => '',
-        }
+
+    # room の情報を取得（https://developer.chatwork.com/ja/endpoint_rooms.html#GET-rooms-room_id）
+    my $res = $cw->api(
+        method => 'get',
+        url    => 'https://api.chatwork.com/v2/rooms',
+        opt    => {}
+    );
+    print Dumper $res;
+
+    # room を作成する（https://developer.chatwork.com/ja/endpoint_rooms.html#POST-rooms）
+    my $res = $cw->api(
+        method => 'post',
+        url    => 'https://api.chatwork.com/v2/rooms',
+        opt    => { members_admin_ids => [123456789], name => 'TEST POST' },
     );
 
-    my $download_url = $file_info->{download_url}; # 30 秒間有効なダウンロードリンク
+    # 添付ファイルのダウンロードリンクを取得する（https://developer.chatwork.com/ja/endpoint_rooms.html#GET-rooms-room_id-files-file_id）
+    my $res = $cw->api(
+        method => 'get',
+        url =>
+            "https://api.chatwork.com/v2/rooms/$room_id/files/$file_id",
+        opt => { create_download_url => 1 },
+    );
 
 
 =head1 DESCRIPTION
 
-Acme::WebService::ChatworkApiV2 is ...
+Acme::WebService::ChatworkApiV2 is Simple wrappers for Chatwork API.
 
 =head1 LICENSE
 

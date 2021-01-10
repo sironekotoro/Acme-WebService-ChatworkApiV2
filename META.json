@@ -42,10 +42,12 @@
       },
       "runtime" : {
          "requires" : {
+            "Encode" : "0",
+            "Function::Parameters" : "0",
             "HTTP::Tiny" : "0",
             "JSON::PP" : "4.05",
             "Mouse" : "v2.5.10",
-            "URI" : "5.05",
+            "URI" : "0",
             "perl" : "5.008001"
          }
       },
@@ -56,6 +58,17 @@
       }
    },
    "release_status" : "unstable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/sironekotoro/Acme-WebService-ChatworkApiV2/issues"
+      },
+      "homepage" : "https://github.com/sironekotoro/Acme-WebService-ChatworkApiV2",
+      "repository" : {
+         "type" : "git",
+         "url" : "git://github.com/sironekotoro/Acme-WebService-ChatworkApiV2.git",
+         "web" : "https://github.com/sironekotoro/Acme-WebService-ChatworkApiV2"
+      }
+   },
    "version" : "0.01",
    "x_serialization_backend" : "JSON::PP version 4.05",
    "x_static_install" : 1
