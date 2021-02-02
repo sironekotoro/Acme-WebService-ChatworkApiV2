@@ -39,7 +39,6 @@ method api( :$method, :$url, :$opt = {} ) {
             = keys %{$opt} > 0 ? opt_string_url_encode($opt) : undef;
 
         $uri->query_form($opt);
-        print $uri;
 
         $response = $self->http->get($uri);
     }
